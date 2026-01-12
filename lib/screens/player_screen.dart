@@ -13,7 +13,7 @@ class PlayerScreen extends StatefulWidget {
 }
 
 class _PlayerScreenState extends State<PlayerScreen>
-    with SingleTickerProviderStateMixin {
+    with SingleTickerProviderStateMixin, WidgetsBindingObserver {
   bool _isLoading = true;
   bool _isConnected = false;
   String? _errorMessage;
@@ -26,11 +26,24 @@ class _PlayerScreenState extends State<PlayerScreen>
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _rotationController = AnimationController(
       duration: const Duration(seconds: 3),
       vsync: this,
     )..repeat();
     _initializePlayer();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    super.didChangeAppLifecycleState(state);
+
+    // Pause playback when app goes to background or terminates
+    if (state == AppLifecycleState.paused ||
+        state == AppLifecycleState.detached) {
+      SpotifyService.pause();
+      _rotationController.stop();
+    }
   }
 
   Future<void> _initializePlayer() async {
@@ -171,6 +184,7 @@ class _PlayerScreenState extends State<PlayerScreen>
 
   @override
   void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
     _rotationController.dispose();
     SpotifyService.disconnect();
     super.dispose();
@@ -264,112 +278,218 @@ class _PlayerScreenState extends State<PlayerScreen>
     final playbackPosition = _playerState?.playbackPosition ?? 0;
     final trackDuration = _playerState?.track?.duration ?? 0;
 
-    return Center(
-      child: Padding(
-        padding: const EdgeInsets.all(32),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Spinning vinyl record with touch control
-            GestureDetector(
-              onPanStart: _onVinylDragStart,
-              onPanUpdate: _onVinylDragUpdate,
-              onPanEnd: _onVinylDragEnd,
-              child: RotationTransition(
-                turns: _rotationController,
-                child: Container(
-                  width: 300,
-                  height: 300,
-                  decoration: BoxDecoration(
-                    shape: BoxShape.circle,
-                    boxShadow: [
-                      BoxShadow(
-                        color: _isDragging
-                            ? const Color(0xFF1DB954).withAlpha(128)
-                            : Colors.black.withAlpha(128),
-                        blurRadius: _isDragging ? 40 : 30,
-                        offset: const Offset(0, 15),
-                      ),
-                    ],
-                  ),
-                  child: ClipOval(
-                    child: Image.asset(
-                      'assets/images/dezi.png',
-                      fit: BoxFit.cover,
-                    ),
-                  ),
-                ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final isLandscape = constraints.maxWidth > constraints.maxHeight;
+        final availableHeight = constraints.maxHeight;
+        final availableWidth = constraints.maxWidth;
+
+        // Calculate vinyl size based on orientation
+        final vinylSize = isLandscape
+            ? (availableHeight * 0.6).clamp(150.0, 300.0)
+            : (availableWidth * 0.7).clamp(200.0, 300.0);
+
+        // Adjust spacing based on orientation
+        final verticalSpacing = isLandscape ? 16.0 : 40.0;
+        final padding = isLandscape ? 16.0 : 32.0;
+
+        if (isLandscape) {
+          // Landscape layout: vinyl on left, controls on right
+          return Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.only(
+                left: padding + 60,
+                right: padding,
+                top: padding,
+                bottom: padding,
               ),
-            ),
-            const SizedBox(height: 60),
-            // Progress bar
-            Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16),
-              child: Column(
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                crossAxisAlignment: CrossAxisAlignment.center,
                 children: [
-                  ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
-                    child: LinearProgressIndicator(
-                      value: trackDuration > 0
-                          ? playbackPosition / trackDuration
-                          : 0,
-                      backgroundColor: const Color(0xFF282828),
-                      valueColor: const AlwaysStoppedAnimation<Color>(
-                        Color(0xFF1DB954),
+                  // Spinning vinyl record with touch control
+                  Flexible(
+                    flex: 2,
+                    child: Center(
+                      child: GestureDetector(
+                        onPanStart: _onVinylDragStart,
+                        onPanUpdate: _onVinylDragUpdate,
+                        onPanEnd: _onVinylDragEnd,
+                        child: RotationTransition(
+                          turns: _rotationController,
+                          child: Container(
+                            width: vinylSize,
+                            height: vinylSize,
+                            decoration: BoxDecoration(
+                              shape: BoxShape.circle,
+                              boxShadow: [
+                                BoxShadow(
+                                  color: _isDragging
+                                      ? const Color(0xFF1DB954).withAlpha(128)
+                                      : Colors.black.withAlpha(128),
+                                  blurRadius: _isDragging ? 40 : 30,
+                                  offset: const Offset(0, 15),
+                                ),
+                              ],
+                            ),
+                            child: ClipOval(
+                              child: Image.asset(
+                                'assets/images/dezi.png',
+                                fit: BoxFit.cover,
+                              ),
+                            ),
+                          ),
+                        ),
                       ),
-                      minHeight: 6,
                     ),
                   ),
-                  const SizedBox(height: 8),
-                  // Time labels
-                  Row(
-                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                    children: [
-                      Text(
-                        _formatDuration(playbackPosition),
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
+                  SizedBox(width: verticalSpacing),
+                  // Controls on the right
+                  Flexible(
+                    flex: 3,
+                    child: Padding(
+                      padding: const EdgeInsets.only(right: 32),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          _buildProgressBar(
+                            playbackPosition,
+                            trackDuration,
+                            isLandscape,
+                          ),
+                          SizedBox(height: verticalSpacing),
+                          _buildPlayPauseButton(isPaused),
+                        ],
                       ),
-                      Text(
-                        _formatDuration(trackDuration - playbackPosition),
-                        style: const TextStyle(
-                          color: Colors.grey,
-                          fontSize: 12,
-                        ),
-                      ),
-                    ],
+                    ),
                   ),
                 ],
               ),
             ),
-            const SizedBox(height: 40),
-            // Play/Pause button
-            Container(
-              decoration: BoxDecoration(
-                color: const Color(0xFF1DB954),
-                shape: BoxShape.circle,
-                boxShadow: [
-                  BoxShadow(
-                    color: const Color(0xFF1DB954).withAlpha(102),
-                    blurRadius: 20,
-                    spreadRadius: 3,
+          );
+        } else {
+          // Portrait layout: vertical stack
+          return Center(
+            child: SingleChildScrollView(
+              padding: EdgeInsets.all(padding),
+              child: Column(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  // Spinning vinyl record with touch control
+                  GestureDetector(
+                    onPanStart: _onVinylDragStart,
+                    onPanUpdate: _onVinylDragUpdate,
+                    onPanEnd: _onVinylDragEnd,
+                    child: RotationTransition(
+                      turns: _rotationController,
+                      child: Container(
+                        width: vinylSize,
+                        height: vinylSize,
+                        decoration: BoxDecoration(
+                          shape: BoxShape.circle,
+                          boxShadow: [
+                            BoxShadow(
+                              color: _isDragging
+                                  ? const Color(0xFF1DB954).withAlpha(128)
+                                  : Colors.black.withAlpha(128),
+                              blurRadius: _isDragging ? 40 : 30,
+                              offset: const Offset(0, 15),
+                            ),
+                          ],
+                        ),
+                        child: ClipOval(
+                          child: Image.asset(
+                            'assets/images/dezi.png',
+                            fit: BoxFit.cover,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
+                  SizedBox(height: verticalSpacing + 20),
+                  _buildProgressBar(
+                    playbackPosition,
+                    trackDuration,
+                    isLandscape,
+                  ),
+                  SizedBox(height: verticalSpacing),
+                  _buildPlayPauseButton(isPaused),
                 ],
               ),
-              child: IconButton(
-                icon: Icon(
-                  isPaused ? Icons.play_arrow : Icons.pause,
-                  size: 56,
+            ),
+          );
+        }
+      },
+    );
+  }
+
+  Widget _buildProgressBar(
+    int playbackPosition,
+    int trackDuration,
+    bool isLandscape,
+  ) {
+    return Padding(
+      padding: EdgeInsets.symmetric(horizontal: isLandscape ? 0 : 16),
+      child: Column(
+        children: [
+          ClipRRect(
+            borderRadius: BorderRadius.circular(8),
+            child: LinearProgressIndicator(
+              value: trackDuration > 0 ? playbackPosition / trackDuration : 0,
+              backgroundColor: const Color(0xFF282828),
+              valueColor: const AlwaysStoppedAnimation<Color>(
+                Color(0xFF1DB954),
+              ),
+              minHeight: 6,
+            ),
+          ),
+          const SizedBox(height: 8),
+          // Time labels
+          Row(
+            mainAxisAlignment: MainAxisAlignment.spaceBetween,
+            children: [
+              Text(
+                _formatDuration(playbackPosition),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
                 ),
-                color: Colors.white,
-                padding: const EdgeInsets.all(24),
-                onPressed: _togglePlayPause,
               ),
-            ),
-          ],
+              Text(
+                _formatDuration(trackDuration - playbackPosition),
+                style: const TextStyle(
+                  color: Colors.grey,
+                  fontSize: 12,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPlayPauseButton(bool isPaused) {
+    return Container(
+      decoration: BoxDecoration(
+        color: const Color(0xFF1DB954),
+        shape: BoxShape.circle,
+        boxShadow: [
+          BoxShadow(
+            color: const Color(0xFF1DB954).withAlpha(102),
+            blurRadius: 20,
+            spreadRadius: 3,
+          ),
+        ],
+      ),
+      child: IconButton(
+        icon: Icon(
+          isPaused ? Icons.play_arrow : Icons.pause,
+          size: 56,
         ),
+        color: Colors.white,
+        padding: const EdgeInsets.all(24),
+        onPressed: _togglePlayPause,
       ),
     );
   }
