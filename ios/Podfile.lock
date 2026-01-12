@@ -1,0 +1,35 @@
+PODS:
+  - Flutter (1.0.0)
+  - mobile_scanner (7.0.0):
+    - Flutter
+    - FlutterMacOS
+  - permission_handler_apple (9.3.0):
+    - Flutter
+  - spotify_sdk (0.0.1):
+    - Flutter
+
+DEPENDENCIES:
+  - Flutter (from `Flutter`)
+  - mobile_scanner (from `.symlinks/plugins/mobile_scanner/darwin`)
+  - permission_handler_apple (from `.symlinks/plugins/permission_handler_apple/ios`)
+  - spotify_sdk (from `.symlinks/plugins/spotify_sdk/ios`)
+
+EXTERNAL SOURCES:
+  Flutter:
+    :path: Flutter
+  mobile_scanner:
+    :path: ".symlinks/plugins/mobile_scanner/darwin"
+  permission_handler_apple:
+    :path: ".symlinks/plugins/permission_handler_apple/ios"
+  spotify_sdk:
+    :path: ".symlinks/plugins/spotify_sdk/ios"
+
+SPEC CHECKSUMS:
+  Flutter: cabc95a1d2626b1b06e7179b784ebcf0c0cde467
+  mobile_scanner: 9157936403f5a0644ca3779a38ff8404c5434a93
+  permission_handler_apple: 4ed2196e43d0651e8ff7ca3483a069d469701f2d
+  spotify_sdk: a48400bb29f70c4fe251ebfdc9135c37097ac5ca
+
+PODFILE CHECKSUM: 251cb053df7158f337c0712f2ab29f4e0fa474ce
+
+COCOAPODS: 1.16.2
