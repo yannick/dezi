@@ -19,6 +19,9 @@ class _PlayerScreenState extends State<PlayerScreen>
   String? _errorMessage;
   PlayerState? _playerState;
   late AnimationController _rotationController;
+  bool _isDragging = false;
+  bool _wasPlayingBeforeDrag = false;
+  double _dragVelocity = 0.0;
 
   @override
   void initState() {
@@ -86,6 +89,83 @@ class _PlayerScreenState extends State<PlayerScreen>
       await SpotifyService.resume();
     } else {
       await SpotifyService.pause();
+    }
+  }
+
+  void _onVinylDragStart(DragStartDetails details) {
+    setState(() {
+      _isDragging = true;
+      _wasPlayingBeforeDrag = !(_playerState?.isPaused ?? true);
+      _dragVelocity = 0.0;
+    });
+
+    // Pause playback when user starts dragging
+    if (_wasPlayingBeforeDrag) {
+      SpotifyService.pause();
+    }
+
+    // Stop the automatic rotation
+    _rotationController.stop();
+  }
+
+  void _onVinylDragUpdate(DragUpdateDetails details) {
+    // Calculate rotational velocity based on drag distance
+    // Using the center of the vinyl as pivot point
+    final RenderBox box = context.findRenderObject() as RenderBox;
+    final center = Offset(box.size.width / 2, box.size.height / 2);
+
+    // Calculate angle change from drag delta
+    final dx = details.delta.dx;
+    final dy = details.delta.dy;
+
+    // Convert linear drag to rotational velocity
+    // Positive values = clockwise, negative = counter-clockwise
+    final rotationalDelta = (dx - dy) / 300;
+
+    setState(() {
+      _dragVelocity = rotationalDelta;
+    });
+
+    // Manually advance the rotation based on drag
+    final newValue = _rotationController.value + rotationalDelta;
+    _rotationController.value = newValue % 1.0;
+  }
+
+  void _onVinylDragEnd(DragEndDetails details) {
+    setState(() {
+      _isDragging = false;
+    });
+
+    // Calculate fling velocity for smooth deceleration
+    final velocity = details.velocity.pixelsPerSecond;
+    final speed = velocity.distance;
+
+    if (speed > 100) {
+      // User flicked the vinyl - spin it with momentum
+      final rotationalVelocity = speed / 1000;
+      _rotationController.duration = Duration(
+        milliseconds: (3000 / rotationalVelocity).round().clamp(500, 3000),
+      );
+      _rotationController.repeat();
+
+      // Gradually return to normal speed
+      Future.delayed(Duration(milliseconds: 1000), () {
+        if (mounted && !_isDragging) {
+          _rotationController.duration = const Duration(seconds: 3);
+        }
+      });
+    }
+
+    // Resume playback if it was playing before
+    if (_wasPlayingBeforeDrag) {
+      Future.delayed(Duration(milliseconds: 200), () {
+        if (mounted && !_isDragging) {
+          SpotifyService.resume();
+        }
+      });
+    } else if (!(_playerState?.isPaused ?? true)) {
+      // Resume normal rotation if playing
+      _rotationController.repeat();
     }
   }
 
@@ -190,26 +270,33 @@ class _PlayerScreenState extends State<PlayerScreen>
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
-            // Spinning vinyl record
-            RotationTransition(
-              turns: _rotationController,
-              child: Container(
-                width: 300,
-                height: 300,
-                decoration: BoxDecoration(
-                  shape: BoxShape.circle,
-                  boxShadow: [
-                    BoxShadow(
-                      color: Colors.black.withAlpha(128),
-                      blurRadius: 30,
-                      offset: const Offset(0, 15),
+            // Spinning vinyl record with touch control
+            GestureDetector(
+              onPanStart: _onVinylDragStart,
+              onPanUpdate: _onVinylDragUpdate,
+              onPanEnd: _onVinylDragEnd,
+              child: RotationTransition(
+                turns: _rotationController,
+                child: Container(
+                  width: 300,
+                  height: 300,
+                  decoration: BoxDecoration(
+                    shape: BoxShape.circle,
+                    boxShadow: [
+                      BoxShadow(
+                        color: _isDragging
+                            ? const Color(0xFF1DB954).withAlpha(128)
+                            : Colors.black.withAlpha(128),
+                        blurRadius: _isDragging ? 40 : 30,
+                        offset: const Offset(0, 15),
+                      ),
+                    ],
+                  ),
+                  child: ClipOval(
+                    child: Image.asset(
+                      'assets/images/dezi.png',
+                      fit: BoxFit.cover,
                     ),
-                  ],
-                ),
-                child: ClipOval(
-                  child: Image.asset(
-                    'assets/images/dezi.png',
-                    fit: BoxFit.cover,
                   ),
                 ),
               ),
