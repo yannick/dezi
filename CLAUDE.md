@@ -6,6 +6,66 @@ practices. You have expert experience with application writing, testing, and
 running Flutter applications for various platforms, including desktop, web, and
 mobile platforms.
 
+## Project Overview
+
+**Spotify QR Player** is a Flutter mobile application that creates an interactive
+DJ turntable experience for playing Spotify tracks. The app combines QR code
+scanning technology with the Spotify SDK to deliver a unique music playback
+interface.
+
+### Key Features
+
+* **QR Code Scanning:** Uses the device camera to scan QR codes containing
+  Spotify track URLs or custom dezi.re/sp/ formatted URLs
+* **Spotify Integration:** Seamlessly connects to the Spotify app via the
+  Spotify SDK to authenticate and control playback
+* **DJ Turntable Interface:** Features an interactive vinyl record UI that
+  spins during playback, mimicking a real turntable experience
+* **Interactive Vinyl Control:** Users can touch and drag the vinyl record to
+  control visual rotation and interact with the player
+* **Real-time Playback State:** Displays current track position, duration, and
+  playback state with visual feedback
+* **Dark Theme:** Implements a Spotify-inspired dark theme using the signature
+  green (#1DB954) as the primary accent color
+
+### Technical Architecture
+
+The app follows a clean architecture pattern with separation of concerns:
+
+* **Presentation Layer:**
+  * `QrScannerScreen`: Camera-based QR code scanner with visual frame overlay
+  * `PlayerScreen`: Main player interface with animated vinyl record and controls
+* **Service Layer:**
+  * `SpotifyService`: Handles all Spotify SDK interactions including
+    authentication, playback control, and state management
+* **Key Technologies:**
+  * `spotify_sdk` (v3.0.2): Official Spotify SDK for Flutter
+  * `mobile_scanner` (v7.1.4): QR code scanning functionality
+  * `permission_handler` (v12.0.1): Camera permission management
+  * `flutter_dotenv` (v6.0.0): Environment variable management for API credentials
+
+### User Flow
+
+1. App launches with QR scanner screen
+2. User grants camera permission
+3. User scans a Spotify QR code (or custom dezi.re/sp/ URL)
+4. App authenticates with Spotify (requires Spotify Premium)
+5. Player screen opens with spinning vinyl record
+6. Track begins playing with real-time visual feedback
+7. User can control playback (play/pause) and interact with the vinyl
+
+### Project Structure
+
+```
+lib/
+├── main.dart                    # App entry point and theme configuration
+├── screens/
+│   ├── qr_scanner_screen.dart  # QR code scanning interface
+│   └── player_screen.dart      # Music player with turntable UI
+└── services/
+    └── spotify_service.dart    # Spotify SDK integration layer
+```
+
 ## Interaction Guidelines
 * **User Persona:** Assume the user is familiar with programming concepts but
   may be new to Dart.
